@@ -35,6 +35,9 @@ namespace _2DChessCore
             window.MouseButtonReleased += OnMouseClick;
             // window.MouseMoved += OnMouseClick;
 
+            // The square the mouse is currently in
+            Vector2u ActiveSquare = new Vector2u();
+
             // Board setup
             ChessBoard ChessBoard = new ChessBoard();
 
@@ -58,10 +61,17 @@ namespace _2DChessCore
                 }
             }
 
-            Sprite Board = new Sprite(BoardTexture);
-            Board.Scale = new Vector2f(0.25f, 0.25f);
+            Sprite Board = new Sprite(BoardTexture)
+            {
+                Scale = new Vector2f(0.25f, 0.25f)
+            };
 
             // Pieces setup
+            bool PieceSelected = false;
+            Vector2u MoveFrom = new Vector2u();
+            //PieceType SelectedPiece = new PieceType();
+            //SelectedPiece = PieceType.Empty;
+
             List<Sprite> Pieces = new List<Sprite>();
 
             // Pawns
@@ -82,39 +92,50 @@ namespace _2DChessCore
             PawnTexture.Smooth = true;
 
             //Pawn.Origin = new Vector2f(Pawn.GetGlobalBounds().Width / 2, Pawn.GetGlobalBounds().Height / 2);
-           
+
             // Make sprite bigger? take up entire square and THEN center texture 
             //Pawn.Position = new Vector2f(Pawn.Position.X + (Pawn.GetGlobalBounds().Width / 2), Pawn.Position.Y + (Pawn.GetGlobalBounds().Height / 2));
+
+            // Square 112.75f * 112.75f
 
             // Avoid unessesary duplicate, right now we only need position to differ
             Sprite[] PawnArray = new Sprite[8];
             for (uint i = 0; i < 8; i++)
             {
-                Sprite Pawn = new Sprite(PawnTexture);
-                Pawn.Scale = new Vector2f(0.25f, 0.25f);
-                Pawn.Position = new Vector2f(i * 112.5f, 0);
+                Sprite Pawn = new Sprite(PawnTexture)
+                {
+                    Scale = new Vector2f(0.25f, 0.25f)
+                };
+                //Pawn.Position = new Vector2f(i * 112.75f, 112.75f * 6);
                 PawnArray[i] = Pawn;
             }
 
             Pieces.AddRange(PawnArray);
 
+            // Make this only update frame each round
             while (window.IsOpen)
             {
-                // Render pieces based on logical chess board
-                //for (uint i = 0; i < 8; i++)
-                //{
-                //    for (uint j = 0; j < 8; j++)
-                //    {
-                //        switch (ChessBoard.Squares[i, j])
-                //        {
-                //            case PieceType.PawnWhite:
-                                
-                //                break;
-                //            default:
-                //                break;
-                //        }
-                //    }
-                //}
+                // Events
+                window.DispatchEvents();
+
+                // Render pieces based on logical chess board - only needs to happen after a turn
+                // Limit tick rate basically
+                int PawnCounter = 0;
+                for (int i = 0; i < 8; i++)
+                {
+                    for (int j = 0; j < 8; j++)
+                    {
+                        switch (ChessBoard.Squares[i, j])
+                        {
+                            case PieceType.PawnWhite:
+                                Pieces[PawnCounter].Position = new Vector2f(j * 112.75f, i * 112.75f);
+                                PawnCounter++;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
 
                 // Capture and clamp mouse - could be moved inside function below
                 Vector2i MousePosition = Mouse.GetPosition(window);
@@ -133,20 +154,42 @@ namespace _2DChessCore
                 else UnsignedMousePosition.Y = (uint)MousePosition.Y;
                 //
 
+                // Pressing too quickly doesnt register
+                // Highlight selected piece
+
                 if (LeftMouseIsPressed)
                 {
+                    // Make sure in bounds, right now if you click off screen it'll select a square along the 
+                    // edges as its clamped - fix with outOfFocus or similar
+                    ActiveSquare.X = (uint)(UnsignedMousePosition.X / 112.75f);
+                    ActiveSquare.Y = (uint)(UnsignedMousePosition.Y / 112.75f);
+
+                    if (PieceSelected)
+                    {
+                        ChessBoard.MovePiece(MoveFrom, new Vector2u(ActiveSquare.X, ActiveSquare.Y));
+                        PieceSelected = false;
+                        Console.WriteLine("PLACED");
+                    }
+                    else
+                    {
+                        MoveFrom = new Vector2u(ActiveSquare.X, ActiveSquare.Y);
+                        PieceSelected = true;
+                        Console.WriteLine("SELECTED");
+                    }
+
+                    LeftMouseIsPressed = false;
+
+                    Console.WriteLine($"X: {ActiveSquare.X}");
+                    Console.WriteLine($"Y: {ActiveSquare.Y}");
+
                     foreach (var Piece in Pieces)
                     {
-                        if (Piece.GetGlobalBounds().Contains(UnsignedMousePosition.X, UnsignedMousePosition.Y))
-                        {
 
-                        }
+
                     }
                 }
 
                 window.Clear(new Color(255, 255, 255, 255));
-                // Should this be at the top?
-                window.DispatchEvents();
                 window.Draw(Board);
                 foreach (var Piece in Pieces)
                 {
@@ -154,14 +197,15 @@ namespace _2DChessCore
                 }
                 window.Display();
 
+
                 // Console 
-                Console.Clear();
-                Console.WriteLine($"Mouse X: {UnsignedMousePosition.X.ToString()}");
-                Console.WriteLine($"Mouse Y: {UnsignedMousePosition.Y.ToString()}");
-                //Console.WriteLine($"Pawn W: {Pawn.GetGlobalBounds().Width}");
-                //Console.WriteLine($"Pawn H: {Pawn.GetGlobalBounds().Height}");
-                Console.WriteLine($"Board W: {Board.GetGlobalBounds().Width}");
-                ChessBoard.DrawBoard();
+                //Console.Clear();
+                //Console.WriteLine($"Mouse X: {UnsignedMousePosition.X.ToString()}");
+                //Console.WriteLine($"Mouse Y: {UnsignedMousePosition.Y.ToString()}");
+                ////Console.WriteLine($"Pawn W: {Pawn.GetGlobalBounds().Width}");
+                ////Console.WriteLine($"Pawn H: {Pawn.GetGlobalBounds().Height}");
+                //Console.WriteLine($"Board W: {Board.GetGlobalBounds().Width}");
+                //ChessBoard.DrawBoard();
                 // Console 
             }
         }
@@ -176,9 +220,10 @@ namespace _2DChessCore
 
         private static void OnMouseClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.Button == Mouse.Button.Left)
+            if (e.Button == Mouse.Button.Left && !LeftMouseIsPressed)
             {
                 LeftMouseIsPressed = Mouse.IsButtonPressed(Mouse.Button.Left);
+                //Console.WriteLine("PRESSED");
             }
         }
     }
