@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.IO;
 using SFML;
 using SFML.Audio;
@@ -33,7 +34,6 @@ namespace _2DChessCore
             window.KeyPressed += OnKeyPressed;
             window.MouseButtonPressed += OnMouseClick;
             window.MouseButtonReleased += OnMouseClick;
-            // window.MouseMoved += OnMouseClick;
 
             // The square the mouse is currently in
             Vector2u ActiveSquare = new Vector2u();
@@ -75,52 +75,104 @@ namespace _2DChessCore
             List<Sprite> Pieces = new List<Sprite>();
 
             // Pawns
-            Image PawnImage = new Image($"{parentDirectory}/Assets/Pieces/w_pawn_1x_ns.png");
+            const uint SquareWidth = 451;
+            const uint SquareHeight = 451;
 
-            // PawnImage H: 293
-            // PawnImage W: 239
+            Image PawnImageWhite = new Image($"{parentDirectory}/Assets/Pieces/w_pawn_1x_ns.png");
+            Image PawnImageBlack = new Image($"{parentDirectory}/Assets/Pieces/b_pawn_1x_ns.png");
 
-            Texture PawnTexture = new Texture(451, 451);
-
-            Vector2f PawnOffset = new Vector2f(PawnTexture.Size.X - PawnImage.Size.X, PawnTexture.Size.Y - PawnImage.Size.Y);
+            Vector2f PawnOffset = new Vector2f(SquareWidth - PawnImageWhite.Size.X, SquareWidth - PawnImageWhite.Size.Y);
             PawnOffset.X = PawnOffset.X / 2f;
             PawnOffset.Y = PawnOffset.Y / 2f;
 
-            // Remember to scale down sprite same as board
+            //
+            Texture PawnTextureWhite = new Texture(SquareWidth, SquareHeight);
+            PawnTextureWhite.Update(PawnImageWhite, (uint)PawnOffset.X, (uint)PawnOffset.Y);
+            PawnTextureWhite.Smooth = true;
 
-            PawnTexture.Update(PawnImage, (uint)PawnOffset.X, (uint)PawnOffset.Y);
-            PawnTexture.Smooth = true;
+            // Black
+            // double check this new Vector2f 
+            PawnOffset = new Vector2f(SquareWidth - PawnImageBlack.Size.X, SquareWidth - PawnImageBlack.Size.Y);
+            PawnOffset.X = PawnOffset.X / 2f;
+            PawnOffset.Y = PawnOffset.Y / 2f;
 
-            //Pawn.Origin = new Vector2f(Pawn.GetGlobalBounds().Width / 2, Pawn.GetGlobalBounds().Height / 2);
+            Texture PawnTextureBlack = new Texture(SquareWidth, SquareHeight);
+            PawnTextureBlack.Update(PawnImageBlack, (uint)PawnOffset.X, (uint)PawnOffset.Y);
+            PawnTextureBlack.Smooth = true;
 
-            // Make sprite bigger? take up entire square and THEN center texture 
-            //Pawn.Position = new Vector2f(Pawn.Position.X + (Pawn.GetGlobalBounds().Width / 2), Pawn.Position.Y + (Pawn.GetGlobalBounds().Height / 2));
+            // Kings
+            Image KingImageWhite = new Image($"{parentDirectory}/Assets/Pieces/w_king_1x_ns.png");
+            Image KingImageBlack = new Image($"{parentDirectory}/Assets/Pieces/b_king_1x_ns.png");
 
-            // Square 112.75f * 112.75f
+            Vector2f KingOffset = new Vector2f(SquareWidth - KingImageWhite.Size.X, SquareWidth - KingImageWhite.Size.Y);
+            KingOffset.X = KingOffset.X / 2f;
+            KingOffset.Y = KingOffset.Y / 2f;
+
+            Texture KingTextureWhite = new Texture(SquareWidth, SquareHeight);
+            KingTextureWhite.Update(KingImageWhite, (uint)KingOffset.X, (uint)KingOffset.Y);
+            KingTextureWhite.Smooth = true;
+
+            Texture KingTextureBlack = new Texture(SquareWidth, SquareHeight);
+            KingTextureBlack.Update(KingImageBlack, (uint)KingOffset.X, (uint)KingOffset.Y);
+            KingTextureBlack.Smooth = true;
 
             // Avoid unessesary duplicate, right now we only need position to differ
-            Sprite[] PawnArray = new Sprite[8];
+            Sprite[] PieceArray = new Sprite[18];
             for (uint i = 0; i < 8; i++)
             {
-                Sprite Pawn = new Sprite(PawnTexture)
+                Sprite Pawn = new Sprite(PawnTextureWhite)
                 {
                     Scale = new Vector2f(0.25f, 0.25f)
                 };
-                //Pawn.Position = new Vector2f(i * 112.75f, 112.75f * 6);
-                PawnArray[i] = Pawn;
+                PieceArray[i] = Pawn;
+            }
+            for (uint i = 8; i < 16; i++)
+            {
+                Sprite Pawn = new Sprite(PawnTextureBlack)
+                {
+                    Scale = new Vector2f(0.25f, 0.25f)
+                };
+                PieceArray[i] = Pawn;
             }
 
-            Pieces.AddRange(PawnArray);
+            Sprite KingW = new Sprite(KingTextureWhite)
+            {
+                Scale = new Vector2f(0.25f, 0.25f)
+            };
+            PieceArray[16] = KingW;
 
+            Sprite KingB = new Sprite(KingTextureBlack)
+            {
+                Scale = new Vector2f(0.25f, 0.25f)
+            };
+            PieceArray[17] = KingB;
+
+            // Add all sprites
+            Pieces.AddRange(PieceArray);
+            
+            Clock Clock = new Clock();
             // Make this only update frame each round
+            // Remove nested IFs
             while (window.IsOpen)
             {
+                float DeltaTime = Clock.Restart().AsSeconds();
+                Console.WriteLine("FPS: " + (int)(1.0f / DeltaTime));
                 // Events
                 window.DispatchEvents();
 
                 // Render pieces based on logical chess board - only needs to happen after a turn
                 // Limit tick rate basically
-                int PawnCounter = 0;
+
+                // Check order of checking for input and rendering based on that
+
+                // Hotfix for removing pieces - could be repurposed to show captured pieces, scale them down etc
+                foreach (var Piece in Pieces)
+                {
+                    Piece.Position = new Vector2f(-140.0f, -140.0f);
+                }
+
+                int PawnCounterW = 0;
+                int PawnCounterB = 0;
                 for (int i = 0; i < 8; i++)
                 {
                     for (int j = 0; j < 8; j++)
@@ -128,8 +180,19 @@ namespace _2DChessCore
                         switch (ChessBoard.Squares[i, j])
                         {
                             case PieceType.PawnWhite:
-                                Pieces[PawnCounter].Position = new Vector2f(j * 112.75f, i * 112.75f);
-                                PawnCounter++;
+                                Pieces[PawnCounterW].Position = new Vector2f(j * 112.75f, i * 112.75f);
+                                PawnCounterW++;
+                                break;
+                            case PieceType.PawnBlack:
+                                // + 8 is the offset where those sprites start in the array
+                                Pieces[PawnCounterB + 8].Position = new Vector2f(j * 112.75f, i * 112.75f);
+                                PawnCounterB++;
+                                break;
+                            case PieceType.KingWhite:
+                                Pieces[16].Position = new Vector2f(j * 112.75f, i * 112.75f);
+                                break;
+                            case PieceType.KingBlack:
+                                Pieces[17].Position = new Vector2f(j * 112.75f, i * 112.75f);
                                 break;
                             default:
                                 break;
@@ -139,28 +202,15 @@ namespace _2DChessCore
 
                 // Capture and clamp mouse - could be moved inside function below
                 Vector2i MousePosition = Mouse.GetPosition(window);
-                Vector2u UnsignedMousePosition;
-
-                if (MousePosition.X < 0) UnsignedMousePosition.X = 0;
-
-                else if (MousePosition.X > WindowWidth) UnsignedMousePosition.X = WindowWidth;
-
-                else UnsignedMousePosition.X = (uint)MousePosition.X;
-
-                if (MousePosition.Y < 0) UnsignedMousePosition.Y = 0;
-
-                else if (MousePosition.Y > WindowHeight) UnsignedMousePosition.Y = WindowHeight;
-
-                else UnsignedMousePosition.Y = (uint)MousePosition.Y;
+                Vector2u UnsignedMousePosition = HelperMethods.Clamp(MousePosition, WindowWidth, WindowHeight);
                 //
 
-                // Pressing too quickly doesnt register
-                // Highlight selected piece
-
+                // Highlight selected piece - ADD
                 if (LeftMouseIsPressed)
                 {
                     // Make sure in bounds, right now if you click off screen it'll select a square along the 
                     // edges as its clamped - fix with outOfFocus or similar
+                    // avoid making reduant valid checks?
                     ActiveSquare.X = (uint)(UnsignedMousePosition.X / 112.75f);
                     ActiveSquare.Y = (uint)(UnsignedMousePosition.Y / 112.75f);
 
@@ -172,23 +222,25 @@ namespace _2DChessCore
                     }
                     else
                     {
-                        MoveFrom = new Vector2u(ActiveSquare.X, ActiveSquare.Y);
-                        PieceSelected = true;
-                        Console.WriteLine("SELECTED");
+                        // Check whether we are actually picking up a piece / a valid piece
+                        if (ChessBoard.Squares[ActiveSquare.Y, ActiveSquare.X] != PieceType.Empty)
+                        {
+                            if ((ChessBoard.Turn == 'w' && ChessBoard.Squares[ActiveSquare.Y, ActiveSquare.X] < PieceType.PawnBlack) ||
+                                (ChessBoard.Turn == 'b' && ChessBoard.Squares[ActiveSquare.Y, ActiveSquare.X] > PieceType.KingWhite))
+                            {
+                                MoveFrom = new Vector2u(ActiveSquare.X, ActiveSquare.Y);
+                                PieceSelected = true;
+                                Console.WriteLine("SELECTED");
+                            }
+                        }
                     }
 
                     LeftMouseIsPressed = false;
 
                     Console.WriteLine($"X: {ActiveSquare.X}");
                     Console.WriteLine($"Y: {ActiveSquare.Y}");
-
-                    foreach (var Piece in Pieces)
-                    {
-
-
-                    }
+                    // used to be a foreach here
                 }
-
                 window.Clear(new Color(255, 255, 255, 255));
                 window.Draw(Board);
                 foreach (var Piece in Pieces)
@@ -196,7 +248,6 @@ namespace _2DChessCore
                     window.Draw(Piece);
                 }
                 window.Display();
-
 
                 // Console 
                 //Console.Clear();
@@ -209,6 +260,14 @@ namespace _2DChessCore
                 // Console 
             }
         }
+        // Threads
+        //private static void RotateSprite(Sprite sprite, float deltaTime)
+        //{
+        //    sprite.Rotation += 1 * deltaTime;
+        //    Console.WriteLine("Called");
+        //}
+
+        // Events
         private static void OnKeyPressed(object sender, KeyEventArgs e)
         {
             var window = (Window)sender;
